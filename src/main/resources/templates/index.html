@@ -1,0 +1,55 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta content="text/html; charset=utf-8">
+    <script th:src="@{/js/jquery-3.2.1.min.js}"></script>
+    <script type="text/javascript">
+//        window.onload = function () {
+//            function listen() {
+//                var uuid = $("#uuid").text();
+//                $.ajax({
+//                    type: "GET",
+//                    url: "/pcwx/listen",
+//                    data: {
+//                        uuid: uuid
+//                    },
+//                    success: function (msg) {
+//                        console.log("login result:" + msg.code);
+//                        if (msg.code == 2) {
+//                            //过期
+//                            clearInterval(i);
+//                            $("#qcrode").src = "../404.gif";
+//                        }
+//                        if (msg.code == 3) {
+//                            //已登录
+//                            clearInterval(i);
+//                            login(msg.html);
+//                        }
+//                        if (msg.code == 4) {
+//                            console.log(msg.img);
+//                            $("#qcrode").src = msg.img;
+//                        }
+//                    }
+//                });
+//            }
+//
+//            var i;
+//            listen();
+//            i = setInterval(listen, 15000);
+//        };
+
+        function login(html) {
+            document.write(html);
+        }
+        $("#wo").click(function () {
+            alert("点了");
+            $("#qcrode").src = "../404.gif";
+        });
+    </script>
+</head>
+<body>
+<!--/*@thymesVar id="uuid" type=""*/-->
+<span id="uuid" th:text="${uuid}"></span>
+<img id="qcrode" th:src="${qcrodeUrl}"/>
+<button th:id="wo">点我</button>
+</body>
+</html>
