@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,7 +38,7 @@ public class WechatPcController {
     private DemoService demoService;
 
     @RequestMapping("qcrode")
-    public Object getQcrode(Model model) {
+    public Object getQcrode(Model model, HttpServletRequest request, HttpServletResponse response) {
         String uuid = demoService.getUUID();
         if (StringUtils.isBlank(uuid)) {
             model.addAttribute("qcrodeUrl", "/static/404.gif");
@@ -51,5 +54,11 @@ public class WechatPcController {
     @ResponseBody
     public Map<String, Object> loginListen(String uuid) {
         return demoService.loginListen(uuid);
+    }
+
+    @RequestMapping("syncCheckListen")
+    @ResponseBody
+    public Map<String, Object> syncCheckListen(String sid, String uin, String skey, String synckey, String pushDomainName, String passTicket) {
+        return demoService.syncCheck(sid, uin, skey, synckey, pushDomainName, passTicket);
     }
 }

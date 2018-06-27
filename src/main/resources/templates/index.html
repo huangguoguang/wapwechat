@@ -3,53 +3,74 @@
     <meta content="text/html; charset=utf-8">
     <script th:src="@{/js/jquery-3.2.1.min.js}"></script>
     <script type="text/javascript">
-//        window.onload = function () {
-//            function listen() {
-//                var uuid = $("#uuid").text();
-//                $.ajax({
-//                    type: "GET",
-//                    url: "/pcwx/listen",
-//                    data: {
-//                        uuid: uuid
-//                    },
-//                    success: function (msg) {
-//                        console.log("login result:" + msg.code);
-//                        if (msg.code == 2) {
-//                            //过期
-//                            clearInterval(i);
-//                            $("#qcrode").src = "../404.gif";
-//                        }
-//                        if (msg.code == 3) {
-//                            //已登录
-//                            clearInterval(i);
-//                            login(msg.html);
-//                        }
-//                        if (msg.code == 4) {
-//                            console.log(msg.img);
-//                            $("#qcrode").src = msg.img;
-//                        }
-//                    }
-//                });
-//            }
-//
-//            var i;
-//            listen();
-//            i = setInterval(listen, 15000);
-//        };
+        window.onload = function () {
+            function listen() {
+                var uuid = $("#uuid").text();
+                $.ajax({
+                    type: "GET",
+                    url: "/pcwx/listen",
+                    data: {
+                        uuid: uuid
+                    },
+                    success: function (msg) {
+                        console.log("login result:" + msg.code);
+                        if (msg.code == 2) {
+                            //过期
+                            clearInterval(i);
+                            $("#qcrode").attr("src", "../404.gif");
+                        }
+                        if (msg.code == 3) {
+                            //已登录
+                            clearInterval(i);
+                            console.log(msg.user.nickName);
+                            $("#NickName").text(msg.user.nickName + "恭喜你登录成功");
+                            if (msg.success) {
+                                synccheck(msg);//监听登录后的信息
+                            }
+                        }
+                        if (msg.code == 4) {
+                            console.log(msg.img);
+                            $("#qcrode").attr("src", msg.img);
+                        }
+                    }
+                });
+            }
+            var i;
+            listen();
+            i = setInterval(listen, 15000);
+        };
 
-        function login(html) {
-            document.write(html);
+        function synccheck(data) {
+            function syncCheckListen() {
+                $.ajax({
+                    type: "GET",
+                    url: "/pcwx/syncCheckListen",
+                    data: {
+                        skey: data.skey,
+                        sid: data.sid,
+                        uin: data.uin,
+                        synckey: data.synckey,
+                        passTicket: data.passTicket,
+                        pushDomainName : data.pushDomainName
+                    },
+                    success: function (msg) {
+                        console.log("check result:" + msg);
+                    }
+                });
+            }
+            var i;
+            syncCheckListen();
+            i = setInterval(syncCheckListen, 15000);
         }
-        $("#wo").click(function () {
-            alert("点了");
-            $("#qcrode").src = "../404.gif";
-        });
+        function dianwo() {
+            console.log("点了");
+            $("#qcrode").attr("src", "../404.gif");
+        }
     </script>
 </head>
-<body>
-<!--/*@thymesVar id="uuid" type=""*/-->
 <span id="uuid" th:text="${uuid}"></span>
+<span id="NickName" th:text="你好"></span>
 <img id="qcrode" th:src="${qcrodeUrl}"/>
-<button th:id="wo">点我</button>
+<input type="button" onclick="dianwo()" value="点我"/>
 </body>
 </html>

@@ -1,16 +1,25 @@
 package com.huangguang.work.service.impl;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.huangguang.work.entity.SyncKey;
+import com.huangguang.work.entity.User;
 import com.huangguang.work.service.DemoService;
-import com.huangguang.work.util.HttpClientUtil;
-import com.huangguang.work.util.NodeUtil;
-import com.huangguang.work.util.UrlConstants;
-import com.huangguang.work.util.WxUtil;
+import com.huangguang.work.util.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.Header;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.protocol.HTTP;
 import org.jdom2.JDOMException;
+import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.stereotype.Service;
 
+import javax.servlet.http.Cookie;
 import javax.xml.soap.Node;
-import java.io.IOException;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -30,14 +39,10 @@ public class DemoServiceImpl implements DemoService {
 
     @Override
     public String getUUID() {
-        String oneUrl = "https://login.wx.qq.com/jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN&_=AAAA";
-        long timestamp = System.currentTimeMillis();
-        String firstUrl = oneUrl.replace("AAAA", String.valueOf(timestamp));
-        log.info("第一次请求地址:{}", firstUrl);
-        String result = HttpClientUtil.httpGet(firstUrl, new HashMap<>());
-        log.info("第一次请求结果:{}", result);
-        if (result.indexOf("window.QRLogin.code = 200") != -1) {
-            return result.replace("window.QRLogin.code = 200; window.QRLogin.uuid = \"", "").replace("\";", "");
+        try {
+            return WxUtil.getUUID();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return "";
     }
@@ -57,7 +62,7 @@ public class DemoServiceImpl implements DemoService {
             String replaceUrl = loginUrl.replace("UUID", uuid).replace("TIMESTAMP", String.valueOf(System.currentTimeMillis()));
             log.info("检测二维码扫描状态：{}", replaceUrl);
             String result = HttpClientUtil.httpGet(replaceUrl, new HashMap<>());
-            log.info("检测二维码扫描状态结果为{}", result);
+             log.info("检测二维码扫描状态结果为{}", result);
             //window.code=408;
             if (result.indexOf("408") != -1) {//未扫码
                 map.put("code", 1);
@@ -68,27 +73,36 @@ public class DemoServiceImpl implements DemoService {
             } else if (result.indexOf("200") != -1) {
                 map.put("code", 3);
                 int start = result.indexOf("https");
-                result = result.substring(start).replace("\";", "");
-                log.info("已登录，请求新地址:{}", result);
-                String redirectHtml = HttpClientUtil.httpGet(result, new HashMap<>());
-                log.info(redirectHtml);
-                map.put("html", redirectHtml);
-                String domainName = redirectHtml.replace("window.code=200;window.redirect_uri=\"", "").replace("\";", "");
-                String pushDomainName = "webpush.weixin.qq.com";
-                log.info("检测是否登录:{}", domainName);
-                String initResult = HttpClientUtil.httpGet(domainName, new HashMap<>());
-                log.info("检测结果:{}", initResult);
-                Map<String, Object> initMap = NodeUtil.doXMLParse(initResult);
-                if ((Integer)initMap.get("ret") == 0) {
+                String newLoginUrl = result.substring(start).replace("\";", "");
+                newLoginUrl += "&fun=new&version=v2";
+                log.info("手机确认登录，检查登录地址:{}", newLoginUrl);
+                String pushDomainName = WxUtil.getPushDomainName(newLoginUrl);
+                String checkLoginResult = HttpClientUtil.httpGet(newLoginUrl, new HashMap<>(), "UTF-8");
+                log.info("检查登录结果为{}", checkLoginResult);
+                Map<String, Object> initMap = NodeUtil.doXMLParse(checkLoginResult);
+                if (initMap.get("ret").equals("0")) {
                     String passTiket = initMap.get("pass_ticket").toString();
-                    Map<String, String> paramMap = new HashMap<>();
-                    paramMap.put("r", WxUtil.getRandomNum(9));
-                    paramMap.put("lang", "zh_CN");
-                    paramMap.put("pass_ticket=", passTiket);
-                    System.out.println(HttpClientUtil.httpPost(UrlConstants.initUrl, paramMap, "UTF-8", false));
+                    String initUrl = UrlConstants.initUrl.replace("PASSTICKET", passTiket);
+                    log.info("initURL " + initUrl);
+                    String initResult = HttpClientUtil.jsonPost(initUrl, WxUtil.getInitJson(initMap), "UTF-8");
+                    log.info("initResult  " + initResult);
+                    //加载用户信息
+                    JSONObject rootJson = JSONObject.parseObject(initResult);
+                    User user = JSONObject.parseObject(rootJson.get("User").toString(), User.class);
+                    System.out.println(user.toString());
+                    String syncKeyParam = rootJson.get("SyncKey").toString();
+                    map.put("success", true);
+                    map.put("skey", initMap.get("skey"));
+                    map.put("sid", initMap.get("wxsid"));
+                    map.put("uin", initMap.get("wxuin"));
+                    map.put("synckey", syncKeyParam);
+                    map.put("passTicket", passTiket);
+                    map.put("user", user);
                 } else {
-                    System.out.println("登录失败");
+                    log.error("登录失败");
+                    map.put("success", false);
                 }
+                map.put("pushDomainName", pushDomainName);
                 return map;
             } else if (result.indexOf("201") != -1) {
                 //已扫码，未登录
@@ -106,13 +120,64 @@ public class DemoServiceImpl implements DemoService {
         return map;
     }
 
-    public static void main(String[] args) throws JDOMException, IOException {
-        Map<String, String> paramMap = new HashMap<>();
-        paramMap.put("r", "-1747024806");
-        paramMap.put("lang", "zh_CN");
-        paramMap.put("pass_ticket", "6Ko1iHw7z5V3nE04R7Q%2B%2FVfhqHzGQdTjMZsh3AV2RVGHnZ2HkhGA651ByNYnlLMP");
-        String url = "https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxinit";
-        System.out.println(HttpClientUtil.httpPost(url, paramMap, "UTF-8", false));
+    @Override
+    public Map<String, Object> syncCheck(String sid, String uin, String skey, String synckey, String pushDomainName, String passTicket) {
+        try {
+            String syncKeyParam = WxUtil.convertSyncKey(synckey);
+            String result = WxUtil.doSyncCheck(sid, uin, skey, syncKeyParam, pushDomainName);
+            JSONObject jsonObject = JSONObject.parseObject(result.replace("window.synccheck=", ""));
+            String retcode = jsonObject.get("retcode").toString();
+            int selector = Integer.valueOf(jsonObject.get("selector").toString());
+            String error = "";
+            int value = 0;
+
+            if ("1100".equals(retcode) || "1101".equals(retcode)) {
+                //条件成立,循环10次
+                for (int i = 0; i < 10; i++) {
+                    result = WxUtil.doSyncCheck(sid, uin, skey, synckey, pushDomainName);
+                    jsonObject = JSONObject.parseObject(result.replace("window.synccheck=", ""));
+                    retcode = jsonObject.get("retcode").toString();
+                    selector = Integer.valueOf(jsonObject.get("selector").toString());
+                    if (!"1100".equals(retcode) && !"1101".equals(retcode)) {
+                        //如果retcode != 1100 且 != 1101 跳出循环
+                        break;
+                    }
+                }
+                if ("1100".equals(retcode) || "1101".equals(retcode)) {
+                    error = "1101";
+                    value = 1;
+                }
+            }
+            if (selector == 0 ) {
+                log.info("没有数据");
+                value = 0;
+            }
+            if (selector > 0) {
+                log.info("有数据到达");
+                value = 1;
+            }
+            if (value == 1) {
+                boolean sync = doSync(sid, uin, skey, synckey, pushDomainName, passTicket, error);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+
+    private boolean doSync(String sid, String uin, String skey, String synckey, String pushDomainName, String passTicket, String error) {
+        if ("1101".equals(error)) {
+            return false;
+        }
+        String result = WxUtil.getSyncJson(sid, uin, skey, synckey, passTicket);
+        JSONObject jsonObject = JSONObject.parseObject(result);
+        System.out.println("消息记录" + jsonObject.get("AddMsgCount"));
+        return true;
+    }
+
+
+    public static void main(String[] args) throws Exception {
     }
 
 }

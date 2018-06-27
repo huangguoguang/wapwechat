@@ -20,4 +20,15 @@ public interface DemoService {
     String getQcrodeUrl(String uuid);
 
     Map<String, Object> loginListen(String uuid);
+
+
+    /**
+     * 监听消息
+     * @param sid
+     * @param uin
+     * @param skey
+     * @param synckey
+     * @return
+     */
+    Map<String,Object> syncCheck(String sid, String uin, String skey, String synckey, String pushDomainName, String passTicket);
 }
