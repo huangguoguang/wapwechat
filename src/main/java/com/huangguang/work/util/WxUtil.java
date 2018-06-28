@@ -1,19 +1,20 @@
 package com.huangguang.work.util;
 
-import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.huangguang.work.entity.SyncKey;
+import com.huangguang.work.entity.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.util.EntityUtils;
+import org.jdom2.JDOMException;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+
 
 /**
  * Created with IntelliJ IDEA.
@@ -95,36 +96,35 @@ public class WxUtil {
         return "";
     }
 
-    public static String getInitJson(Map<String, Object> initMap) {
+    public static String getInitJson(LoginSession loginSession) {
         String initJson = "{\"BaseRequest\":{\"Uin\":\"[wxuin]\",\"Sid\":\"[wxsid]\",\"Skey\":\"[skey]\",\"DeviceID\":\"[deviceid]\"}}";
         String deviceId = "e" + getNormalRandom(15);//15位随机数字
-        String wxUin = initMap.get("wxuin").toString();
-        String sid = initMap.get("wxsid").toString();
-        String skey = initMap.get("skey").toString();
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("Uin", wxUin);
-        jsonObject.put("Sid", sid);
-        jsonObject.put("Skey", skey);
-        jsonObject.put("DeviceID", deviceId);
+        String wxUin = loginSession.getWxUin();
+        String sid = loginSession.getWxSid();
+        String skey = loginSession.getSKey();
         initJson = initJson.replace("[wxuin]", wxUin).replace("[wxsid]", sid).replace("[skey]", skey).replace("[deviceid]", deviceId);
-        log.info("init json : " + initJson);
-        return initJson;
+
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("BaseRequest", loginSession.getBaseRequest());
+        System.out.println(initJson);
+        log.info("init json : " + jsonObject.toString());
+        return jsonObject.toString();
     }
 
-    public static String getSyncJson(String sid, String uin, String skey, String synckey, String passTicket) {
+    public static String getSyncJson(LoginSession loginSession) {
         String syncJson = "{\"BaseRequest\":{\"Uin\":\"[wxuin]\",\"Sid\":\"[wxsid]\",\"Skey\":\"[skey]\",\"DeviceID\":\"[deviceid]\"},\"SyncKey\":\"[SyncKey]\",\"rr\":\"[rr]\"}";
         String deviceId = "e" + getNormalRandom(15);//15位随机数字
-        syncJson = syncJson.replace("[wxuin]", uin).replace("[wxsid]", sid).replace("[skey]", skey)
-                .replace("[deviceid]", deviceId).replace("[SyncKey]", synckey).replace("[rr]", getRandomNum(10));
-        String syncUrl = UrlConstants.syncUrl.replace("SID", sid).replace("SKEY", skey).replace("PASSTICKET", passTicket);
+        syncJson = syncJson.replace("[wxuin]", loginSession.getWxUin()).replace("[wxsid]", loginSession.getWxSid()).replace("[skey]", loginSession.getSKey())
+                .replace("[deviceid]", deviceId).replace("[SyncKey]", loginSession.getSyncKeyStr()).replace("[rr]", getRandomNum(10));
+        String syncUrl = UrlConstants.syncUrl.replace("SID", loginSession.getWxSid()).replace("SKEY", loginSession.getSKey()).replace("PASSTICKET", loginSession.getPassTicket());
         String result = HttpClientUtil.jsonPost(syncUrl, syncJson, "UTF-8");
         log.info("获取消息返回: {}", result);
         return result;
     }
 
     public static void main(String[] args) {
-        String saa = "https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxnewloginpage?ticke";
-        System.out.println(getPushDomainName(saa));
+        String a = "https://login.weixin.qq.com/qrcode/%s";
+        System.out.println(String.format(a, "aaaaa"));
     }
 
 
@@ -138,7 +138,7 @@ public class WxUtil {
     public static String convertSyncKey(String syncKey) {
         SyncKey syncKeyObject = JSONObject.parseObject(syncKey, SyncKey.class);
         int count = Integer.parseInt(syncKeyObject.getCount());
-        JSONArray array = JSONObject.parseArray(syncKeyObject.getList());
+/*        JSONArray array = JSONObject.parseArray(syncKeyObject.getList());
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < count; i++) {
             JSONObject jsonObject = JSONObject.parseObject(array.get(i).toString());
@@ -149,7 +149,8 @@ public class WxUtil {
                 sb.append("|");
             }
         }
-        return sb.toString();
+        return sb.toString();*/
+return "";
     }
 
 
@@ -175,22 +176,86 @@ public class WxUtil {
 
     /**
      * 执行syncCheck
-     * @param sid
-     * @param uin
-     * @param skey
-     * @param synckey
-     * @param pushDomainName
+     * @param loginSession
      * @return
      */
-    public static String doSyncCheck(String sid, String uin, String skey, String synckey, String pushDomainName) throws UnsupportedEncodingException {
+    public static SyncCheckRet doSyncCheck(LoginSession loginSession) {
         String deviceId = "e" +WxUtil.getNormalRandom(15);
-        String checkUrl = UrlConstants.syncChekUrl.replace("PHSHDOMAINNAME", pushDomainName).replace("TIMESTAMP1", String.valueOf(System.currentTimeMillis()))
-                .replace("SKEY", skey).replace("SID", sid).replace("UIN", uin).replace("DEVICEID", deviceId)
-                .replace("SYNCKEY", synckey).replace("TIMESTAMP", String.valueOf(System.currentTimeMillis()));
+        String checkUrl = String.format(UrlConstants.syncChekUrl, loginSession.getSyncOrUrl(), System.currentTimeMillis(),
+                loginSession.getSKey(), loginSession.getWxSid(), loginSession.getWxUin(), deviceId, loginSession.getSyncKeyStr(), System.currentTimeMillis());
         checkUrl = checkUrl.replace("@", "%40").replace("|", "%7C");
+        log.info("心跳地址:{}", checkUrl);
         String result = HttpClientUtil.httpGet(checkUrl, new HashMap<>(), "UTF-8");
+
+        SyncCheckRet syncCheckRet = JSONObject.parseObject(result.replace("window.synccheck=", ""), SyncCheckRet.class);
         log.info("心跳返回: {}", result);
         //window.synccheck={retcode:"1100",selector:"0"}
+        return syncCheckRet;
+    }
+
+    public static String wxStatusNotify(Map<String, Object> initMap, String userName) {
+        String deviceId = "e" +WxUtil.getNormalRandom(15);
+        String json = "{\"BaseRequest\":{\"Uin\":\"UIN\",\"Sid\":\"SID\",\"Skey\":\"SKEY\",\"DeviceID\":\"DEVICEID\"},\"Code\":3,\"FromUserName\":\"NAME\",\"ToUserName\":\"NAME\",\"ClientMsgId\":\"TIME\"}";
+        json = json.replace("UIN", initMap.get("wxuin").toString()).replace("SID", initMap.get("wxsid").toString()).replace("SKEY", initMap.get("skey").toString())
+                .replace("DEVICEID", deviceId).replace("NAME", userName).replace("TIME", String.valueOf(System.currentTimeMillis()));
+        String notifyUrl = UrlConstants.notifyUrl.replace("PASSTICKET", initMap.get("pass_ticket").toString());
+        String result = HttpClientUtil.jsonPost(notifyUrl, json, "UTF-8");
+        System.out.println(result);
         return result;
+    }
+
+    /**
+     * 处理登录成功结果，写入loginSession对象
+     * @param checkLoginResult
+     * @param loginSession
+     * @return
+     * @throws JDOMException
+     * @throws IOException
+     */
+    public static LoginSession doLoginSession(String checkLoginResult, LoginSession loginSession) throws JDOMException, IOException {
+        Map<String, Object> initMap = NodeUtil.doXMLParse(checkLoginResult);
+        if (initMap.get("ret").equals("0")) {
+            log.info("登录成功");
+            loginSession.setPassTicket(initMap.get("pass_ticket").toString());
+            loginSession.setWxSid(initMap.get("wxsid").toString());
+            loginSession.setWxUin(initMap.get("wxuin").toString());
+            loginSession.setSKey(initMap.get("skey").toString());
+            //初始化用户信息
+            loginSession = init(loginSession);
+            String notifyResult = WxUtil.wxStatusNotify(initMap, loginSession.getUser().getUserName());
+            System.out.println(notifyResult);
+            return loginSession;
+        }
+        log.error("登录失败");
+        return loginSession;
+    }
+
+    private static LoginSession init(LoginSession loginSession) {
+        String initUrl = String.format(UrlConstants.initUrl, loginSession.getPassTicket());
+        log.info("initURL " + initUrl);
+        BaseRequest baseRequest = WxUtil.getBaseRequest(loginSession);
+        loginSession.setBaseRequest(baseRequest);
+        String initResult = HttpClientUtil.jsonPost(initUrl, WxUtil.getInitJson(loginSession), "UTF-8");
+        log.info("initResult  " + initResult);
+        //加载用户信息
+        JSONObject rootJson = JSONObject.parseObject(initResult);
+        User user = JSONObject.parseObject(rootJson.get("User").toString(), User.class);
+        loginSession.setUser(user);
+        System.out.println(user.toString());
+        String syncKeyParam = rootJson.get("SyncKey").toString();
+        SyncKey syncKey = JSONObject.parseObject(rootJson.get("SyncKey").toString(), SyncKey.class);
+        loginSession.setSyncKeyStr(syncKeyParam);
+        loginSession.setSyncKey(syncKey);
+        return loginSession;
+    }
+
+    private static BaseRequest getBaseRequest(LoginSession loginSession) {
+        String deviceId = "e" + getNormalRandom(15);//15位随机数字
+        BaseRequest baseRequest = new BaseRequest();
+        baseRequest.setUin(loginSession.getWxUin());
+        baseRequest.setSid(loginSession.getWxSid());
+        baseRequest.setSkey(loginSession.getSKey());
+        baseRequest.setDeviceID(deviceId);
+        return baseRequest;
     }
 }

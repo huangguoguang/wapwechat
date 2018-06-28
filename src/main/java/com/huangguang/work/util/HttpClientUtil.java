@@ -2,10 +2,12 @@ package com.huangguang.work.util;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.*;
+import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.client.utils.HttpClientUtils;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.config.MessageConstraints;
@@ -18,8 +20,10 @@ import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.cookie.Cookie;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.DefaultHttpResponseFactory;
+import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.*;
@@ -53,6 +57,16 @@ import java.util.*;
 
 public class HttpClientUtil {
 	public static final String DEFAULT_CHARSET_ENCODING = "UTF-8";
+
+	private static CookieStore cookieStore = new BasicCookieStore();
+
+	public static CookieStore getCookieStore() {
+		return cookieStore;
+	}
+
+	public static void setCookieStore(CookieStore cookieStore) {
+		HttpClientUtil.cookieStore = cookieStore;
+	}
 
 	public static CloseableHttpClient createHttpsClient() {
 		try {
@@ -296,8 +310,11 @@ public class HttpClientUtil {
 
 	private static String doHttpGet(URI uri, HttpClient httpClient, String charsetEncoding) {
 		HttpGet httpGet = new HttpGet(uri);
+		HttpClientContext context = HttpClientContext.create();
+		context.setCookieStore(cookieStore);
 		try {
-			HttpResponse httpResponse = httpClient.execute(httpGet);
+			HttpResponse httpResponse = httpClient.execute(httpGet, context);
+			cookieStore = context.getCookieStore();
 			InputStream in = httpResponse.getEntity().getContent();
 			StringBuilder sb = new StringBuilder();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(in, charsetEncoding));

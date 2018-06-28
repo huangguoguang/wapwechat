@@ -11,25 +11,25 @@ import lombok.Data;
  */
 @Data
 public class User {
-    private String Uin;
-    private String UserName;
-    private String NickName;
-    private String HeadImgUrl;
-    private String RemarkName;
-    private String PYInitial;
-    private String PYQuanPin;
-    private String RemarkPYInitial;
-    private String RemarkPYQuanPin;
-    private String HideInputBarFlag;
-    private String StarFriend;
-    private String Sex;
-    private String Signature;
-    private String AppAccountFlag;
-    private String VerifyFlag;
-    private String ContactFlag;
-    private String SnsFlag;
-    private String WebWxPluginSwitch;
-    private String HeadImgFlag;
+    private String uin;
+    private String userName;
+    private String nickName;
+    private String headImgUrl;
+    private String remarkName;
+    private String pYInitial;
+    private String pYQuanPin;
+    private String remarkPYInitial;
+    private String remarkPYQuanPin;
+    private String hideInputBarFlag;
+    private String starFriend;
+    private String sex;
+    private String signature;
+    private String appAccountFlag;
+    private String verifyFlag;
+    private String contactFlag;
+    private String snsFlag;
+    private String webWxPluginSwitch;
+    private String headImgFlag;
 
 
 }

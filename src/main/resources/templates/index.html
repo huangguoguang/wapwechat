@@ -22,11 +22,9 @@
                         if (msg.code == 3) {
                             //已登录
                             clearInterval(i);
-                            console.log(msg.user.nickName);
-                            $("#NickName").text(msg.user.nickName + "恭喜你登录成功");
-                            if (msg.success) {
-                                synccheck(msg);//监听登录后的信息
-                            }
+                            console.log(msg.loginSession.user.nickName);
+                            $("#NickName").text(msg.loginSession.user.nickName + "恭喜你登录成功");
+                            synccheck(msg.loginSession);//监听登录后的信息
                         }
                         if (msg.code == 4) {
                             console.log(msg.img);
@@ -40,19 +38,14 @@
             i = setInterval(listen, 15000);
         };
 
-        function synccheck(data) {
+        function synccheck(param) {
+            console.log(param);
             function syncCheckListen() {
                 $.ajax({
-                    type: "GET",
+                    type: "POST",
                     url: "/pcwx/syncCheckListen",
-                    data: {
-                        skey: data.skey,
-                        sid: data.sid,
-                        uin: data.uin,
-                        synckey: data.synckey,
-                        passTicket: data.passTicket,
-                        pushDomainName : data.pushDomainName
-                    },
+                    dataType : "JSON",
+                    data: param,
                     success: function (msg) {
                         console.log("check result:" + msg);
                     }

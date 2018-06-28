@@ -1,5 +1,6 @@
 package com.huangguang.work;
 
+import com.huangguang.work.entity.LoginSession;
 import com.huangguang.work.service.DemoService;
 import com.huangguang.work.util.HttpClientUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -9,13 +10,12 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.lang.management.LockInfo;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,9 +30,6 @@ import java.util.Map;
 @Controller
 @RequestMapping("pcwx")
 public class WechatPcController {
-
-    @Autowired
-    private ApplicationContext context;
 
     @Autowired
     private DemoService demoService;
@@ -58,7 +55,8 @@ public class WechatPcController {
 
     @RequestMapping("syncCheckListen")
     @ResponseBody
-    public Map<String, Object> syncCheckListen(String sid, String uin, String skey, String synckey, String pushDomainName, String passTicket) {
-        return demoService.syncCheck(sid, uin, skey, synckey, pushDomainName, passTicket);
+    public Map<String, Object> syncCheckListen(@ModelAttribute("loginSession") LoginSession loginSession) {
+        log.info(loginSession.getPassTicket());
+        return demoService.syncCheck(loginSession);
     }
 }

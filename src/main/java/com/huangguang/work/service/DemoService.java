@@ -1,5 +1,8 @@
 package com.huangguang.work.service;
 
+import com.huangguang.work.entity.LoginSession;
+import sun.rmi.runtime.Log;
+
 import java.util.Map;
 
 /**
@@ -24,11 +27,7 @@ public interface DemoService {
 
     /**
      * 监听消息
-     * @param sid
-     * @param uin
-     * @param skey
-     * @param synckey
      * @return
      */
-    Map<String,Object> syncCheck(String sid, String uin, String skey, String synckey, String pushDomainName, String passTicket);
+    Map<String,Object> syncCheck(LoginSession loginSession);
 }
