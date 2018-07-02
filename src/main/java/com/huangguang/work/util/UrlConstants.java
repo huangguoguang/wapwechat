@@ -10,6 +10,12 @@ package com.huangguang.work.util;
 public class UrlConstants {
 
     /**
+     * 取uuid Url
+     */
+    public static String uuidUrl = "https://login.wx.qq.com/jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN&_=TIMESTAMP";
+
+
+    /**
      * 登录二维码链接url
      */
     public static String qcrodeUrl = "https://login.weixin.qq.com/qrcode/%s";
@@ -38,11 +44,11 @@ public class UrlConstants {
     /**
      * 接收信息url
      */
-    public static String syncUrl = "https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxsync?sid=SID&skey=SKEY&lang=zh_CN&pass_ticket=PASSTICKET";
+    public static String syncUrl = "https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxsync?sid=%s&skey=%s&pass_ticket=%s";
 
 
 
     public static String domainName = "wx.qq.com";
-    public static String pushDomainName = "webpush.wx.qq.com";
-    public static String pushDomainName2 = "webpush2.wx.qq.com";
+    public static String checkDomain = "webpush.wx.qq.com";
+    public static String checkDomain2 = "webpush2.wx.qq.com";
 }

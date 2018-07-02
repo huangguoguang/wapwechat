@@ -114,6 +114,9 @@ public class HttpClientUtil {
 		return httpGet(URI.create(url + "?" + paramString), charsetEncoding);
 	}
 
+	public static String httpGet(String url) {
+		return httpGet(url, new HashMap<>());
+	}
 	public static String httpGet(String url, Map<String, String> params) {
 		return httpGet(url, params, "UTF-8");
 	}
@@ -356,9 +359,6 @@ private static String doHttpPost(URI uri, CloseableHttpClient httpClient, List<N
 
 
 	private static String doHttpPost(URI uri, HttpClient httpClient, List<NameValuePair> nvps, String charsetEncoding) {
-		
-        
-    	
 		HttpPost httpPost = new HttpPost(uri);
 		try {
 			httpPost.setEntity(new UrlEncodedFormEntity(nvps, charsetEncoding));
@@ -381,11 +381,14 @@ private static String doHttpPost(URI uri, CloseableHttpClient httpClient, List<N
 
 	private static String doJsonPost(URI uri, HttpClient httpClient, String json, String charsetEncoding) {
 		HttpPost httpPost = new HttpPost(uri);
+		HttpClientContext context = HttpClientContext.create();
+		context.setCookieStore(cookieStore);
 		try {
 			StringEntity stringEntity = new StringEntity(json, charsetEncoding);
 			stringEntity.setContentType("application/json");
 			httpPost.setEntity(stringEntity);
-			HttpResponse httpResponse = httpClient.execute(httpPost);
+			HttpResponse httpResponse = httpClient.execute(httpPost, context);
+			cookieStore = context.getCookieStore();
 			InputStream in = httpResponse.getEntity().getContent();
 			StringBuilder sb = new StringBuilder();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(in, charsetEncoding));

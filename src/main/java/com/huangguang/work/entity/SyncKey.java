@@ -1,5 +1,6 @@
 package com.huangguang.work.entity;
 
+import com.alibaba.fastjson.annotation.JSONField;
 import lombok.Data;
 
 import java.util.List;
@@ -13,6 +14,8 @@ import java.util.List;
  */
 @Data
 public class SyncKey {
+    @JSONField(name = "Count")
     private String count;
+    @JSONField(name = "List")
     private List<KeyItem> list;
 }

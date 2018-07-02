@@ -55,8 +55,7 @@ public class WechatPcController {
 
     @RequestMapping("syncCheckListen")
     @ResponseBody
-    public Map<String, Object> syncCheckListen(@ModelAttribute("loginSession") LoginSession loginSession) {
-        log.info(loginSession.getPassTicket());
+    public Map<String, Object> syncCheckListen(@RequestBody LoginSession loginSession) {
         return demoService.syncCheck(loginSession);
     }
 }

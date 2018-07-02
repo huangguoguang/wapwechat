@@ -40,20 +40,23 @@
 
         function synccheck(param) {
             console.log(param);
-            function syncCheckListen() {
-                $.ajax({
-                    type: "POST",
-                    url: "/pcwx/syncCheckListen",
-                    dataType : "JSON",
-                    data: param,
-                    success: function (msg) {
-                        console.log("check result:" + msg);
+            $.ajax({
+                type: "POST",
+                url: "/pcwx/syncCheckListen",
+                dataType : "JSON",
+                contentType:"application/json",
+                data: JSON.stringify(param),
+                success: function (msg) {
+                    console.log("check result:" + msg);
+                    if (msg.loginSession.success) {
+                        console.log(msg.messageList);
+                        synccheck(msg.loginSession);
+                    } else {
+                        console.log("登录异常");
+                        window.location.href = "/pcwx/qcrode";
                     }
-                });
-            }
-            var i;
-            syncCheckListen();
-            i = setInterval(syncCheckListen, 15000);
+                }
+            });
         }
         function dianwo() {
             console.log("点了");

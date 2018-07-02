@@ -3,6 +3,8 @@ package com.huangguang.work.entity;
 import lombok.Data;
 import org.apache.commons.lang.StringUtils;
 
+import java.util.List;
+
 /**
  * Created with IntelliJ IDEA.
  * <p>
@@ -15,7 +17,7 @@ import org.apache.commons.lang.StringUtils;
 public class LoginSession {
     private User user;
 
-    private Account account;
+    private List<Account> contactList;//好友列表
 
     private String url;
 
@@ -40,6 +42,8 @@ public class LoginSession {
     private BaseRequest baseRequest;
 
     private SyncKey syncKey;
+
+    private boolean success;
 
     public String getSyncOrUrl() {
         if (StringUtils.isNotEmpty(this.syncUrl)) {

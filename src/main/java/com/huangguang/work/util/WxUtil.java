@@ -1,19 +1,24 @@
 package com.huangguang.work.util;
 
-import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.huangguang.work.entity.*;
+import com.huangguang.work.enums.MsgType;
+import com.sun.org.apache.xpath.internal.SourceTree;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.util.EntityUtils;
 import org.jdom2.JDOMException;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 /**
@@ -25,20 +30,10 @@ import java.util.Random;
  */
 @Slf4j
 public class WxUtil {
-    public static String cookies = "";
-
-    public static String uuidUrl = "https://login.wx.qq.com/jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=zh_CN&_=TIMESTAMP";
-
-    static {
-        try {
-            cookies = "pgv_pvid=2349344264; pgv_pvi=371976192; pt2gguin=o0330197411; RK=TEqMmRLFeE; ptcz=0c861dd53b748a0d4c425b7958d354315fc864c7376ec9bb9e009d99caa89281; o_cookie=330197411; pac_uid=1_330197411; tvfe_boss_uuid=282e7884c3287810; wxuin=2418455500; webwxuvid=68252693b66488fb6268786e5aea08c0579e848f8406289a2c843d0655d03e850fdcd91ffd63c1f99c4b1531f6ddf65b; last_wxuin=2418455500; pgv_info=ssid=s7006621335; mm_lang=zh_CN; MM_WX_NOTIFY_STATE=1; MM_WX_SOUND_STATE=1; refreshTimes=5; webwx_auth_ticket=CIsBEO70p/MHGoAB9sZr3HFBxUzG7k3RA/8V6gtO/LdHlU/wpKGjlbSuI2o/iOHSEn5lkdfbi0JA4vCnaWPT4no8xFAgbJgtdDHd9Zp+TXavaOvpxelTjjdkPfN5tPFCp8DwFgftk6A/42MDX8V4QIL9jo+OxiO0+85mZmQyxUxm2WCv0bGaVmmh5AI=; login_frequency=1; wxloadtime=1530086030_expired; wxpluginkey=1530085918; pgv_si=s8927884288";
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     /**
      * 随机生成num位随机数，前面有-号
+     *
      * @param num
      * @return
      */
@@ -46,7 +41,7 @@ public class WxUtil {
         StringBuilder sb = new StringBuilder();
         sb.append("-");
         Random random = new Random();
-        for (int i= 0; i < num; i++) {
+        for (int i = 0; i < num; i++) {
             sb.append(random.nextInt(10));
         }
         return sb.toString();
@@ -55,40 +50,16 @@ public class WxUtil {
     public static String getNormalRandom(int num) {
         StringBuilder sb = new StringBuilder();
         Random random = new Random();
-        for (int i= 0; i < num; i++) {
+        for (int i = 0; i < num; i++) {
             sb.append(random.nextInt(10));
         }
         return sb.toString();
     }
 
-    /**
-     * 取全局cookies
-     * @return
-     * @throws Exception
-     */
-    public static String getCookies() throws Exception {
-        Map<String, String> headers = new HashMap<String, String>();
-        Map<String, String> querys = new HashMap<>();
-        HttpResponse httpResponse = HttpUtils.doGet("https://wx.qq.com", "", "", headers, querys);
-        Header[] heades = httpResponse.getAllHeaders();
-        for (int i =0;i< heades.length; i++) {
-            if (heades[i].getName().equals("Set-Cookie")) {
-                cookies = heades[i].getValue();
-            }
-        }
-        log.info("cookies: " + cookies);
-        return cookies;
-    }
-
     public static String getUUID() throws Exception {
-        long timestamp = System.currentTimeMillis();
-        String firstUrl = uuidUrl.replace("TIMESTAMP", String.valueOf(timestamp));
+        String firstUrl = UrlConstants.uuidUrl.replace("TIMESTAMP", String.valueOf(System.currentTimeMillis()));
         log.info("请求uuid地址:{}", firstUrl);
-        Map<String, String> headers = new HashMap<String, String>();
-        Map<String, String> querys = new HashMap<>();
-        headers.put("Cookie", cookies);
-        HttpResponse httpResponse = HttpUtils.doGet(uuidUrl, "", "", headers, querys);
-        String result = EntityUtils.toString(httpResponse.getEntity());
+        String result = HttpClientUtil.httpGet(firstUrl);
         log.info("uuid请求结果:{}", result);
         if (result.indexOf("window.QRLogin.code = 200") != -1) {
             return result.replace("window.QRLogin.code = 200; window.QRLogin.uuid = \"", "").replace("\";", "");
@@ -97,96 +68,65 @@ public class WxUtil {
     }
 
     public static String getInitJson(LoginSession loginSession) {
-        String initJson = "{\"BaseRequest\":{\"Uin\":\"[wxuin]\",\"Sid\":\"[wxsid]\",\"Skey\":\"[skey]\",\"DeviceID\":\"[deviceid]\"}}";
-        String deviceId = "e" + getNormalRandom(15);//15位随机数字
-        String wxUin = loginSession.getWxUin();
-        String sid = loginSession.getWxSid();
-        String skey = loginSession.getSKey();
-        initJson = initJson.replace("[wxuin]", wxUin).replace("[wxsid]", sid).replace("[skey]", skey).replace("[deviceid]", deviceId);
-
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("BaseRequest", loginSession.getBaseRequest());
-        System.out.println(initJson);
         log.info("init json : " + jsonObject.toString());
         return jsonObject.toString();
     }
 
+    /**
+     * syncCheck请求时的json请求参数
+     *
+     * @param loginSession
+     * @return
+     */
     public static String getSyncJson(LoginSession loginSession) {
-        String syncJson = "{\"BaseRequest\":{\"Uin\":\"[wxuin]\",\"Sid\":\"[wxsid]\",\"Skey\":\"[skey]\",\"DeviceID\":\"[deviceid]\"},\"SyncKey\":\"[SyncKey]\",\"rr\":\"[rr]\"}";
-        String deviceId = "e" + getNormalRandom(15);//15位随机数字
-        syncJson = syncJson.replace("[wxuin]", loginSession.getWxUin()).replace("[wxsid]", loginSession.getWxSid()).replace("[skey]", loginSession.getSKey())
-                .replace("[deviceid]", deviceId).replace("[SyncKey]", loginSession.getSyncKeyStr()).replace("[rr]", getRandomNum(10));
-        String syncUrl = UrlConstants.syncUrl.replace("SID", loginSession.getWxSid()).replace("SKEY", loginSession.getSKey()).replace("PASSTICKET", loginSession.getPassTicket());
-        String result = HttpClientUtil.jsonPost(syncUrl, syncJson, "UTF-8");
+        String syncUrl = String.format(UrlConstants.syncUrl, loginSession.getWxSid(), loginSession.getSKey(), loginSession.getPassTicket());
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("BaseRequest", loginSession.getBaseRequest());
+        jsonObject.put("SyncKey", loginSession.getSyncKey());
+        jsonObject.put("rr", getRandomNum(10));
+        log.info("syncUrl:    " + syncUrl);
+        log.info(jsonObject.toJSONString());
+        String result = HttpClientUtil.jsonPost(syncUrl, jsonObject.toJSONString(), "UTF-8");
         log.info("获取消息返回: {}", result);
         return result;
     }
 
-    public static void main(String[] args) {
-        String a = "https://login.weixin.qq.com/qrcode/%s";
-        System.out.println(String.format(a, "aaaaa"));
-    }
-
-
-    /**
-     * 解析syncKey参数为形如
-     * synckey=1_667285982|2_667286229|3_667285960|11_667286030|201_1530003357|203_1529980319
-     * 以下格式
-     * @param syncKey
-     * @return
-     */
-    public static String convertSyncKey(String syncKey) {
-        SyncKey syncKeyObject = JSONObject.parseObject(syncKey, SyncKey.class);
-        int count = Integer.parseInt(syncKeyObject.getCount());
-/*        JSONArray array = JSONObject.parseArray(syncKeyObject.getList());
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < count; i++) {
-            JSONObject jsonObject = JSONObject.parseObject(array.get(i).toString());
-            String key = jsonObject.get("Key").toString();
-            String value = jsonObject.get("Val").toString();
-            sb.append(key).append("_").append(value);
-            if (i < count -1) {
-                sb.append("|");
-            }
-        }
-        return sb.toString();*/
-return "";
-    }
-
-
     /**
      * 获取syncCheck域名
+     *
      * @param newLoginUrl
      * @return
      */
-    public static String getPushDomainName(String newLoginUrl) {
+    public static String getSyncCheckDomain(String newLoginUrl) {
         newLoginUrl = newLoginUrl.replace("https://", "");
         String domainName = newLoginUrl.substring(0, newLoginUrl.indexOf("/"));
         log.info("domainName: {}", domainName);
-        String pushDomainName = "";
+        String checkDomain = "";
         if (domainName.equals(UrlConstants.domainName)) {
-            pushDomainName = UrlConstants.pushDomainName;
+            checkDomain = UrlConstants.checkDomain;
         } else {
-            pushDomainName = UrlConstants.pushDomainName2;
+            checkDomain = UrlConstants.checkDomain2;
         }
-        log.info("pushDomainName: {}", pushDomainName);
-        return pushDomainName;
+        log.info("checkDomain: {}", checkDomain);
+        return checkDomain;
     }
 
 
     /**
      * 执行syncCheck
+     *
      * @param loginSession
      * @return
      */
     public static SyncCheckRet doSyncCheck(LoginSession loginSession) {
-        String deviceId = "e" +WxUtil.getNormalRandom(15);
+        String deviceId = "e" + WxUtil.getNormalRandom(15);
         String checkUrl = String.format(UrlConstants.syncChekUrl, loginSession.getSyncOrUrl(), System.currentTimeMillis(),
                 loginSession.getSKey(), loginSession.getWxSid(), loginSession.getWxUin(), deviceId, loginSession.getSyncKeyStr(), System.currentTimeMillis());
         checkUrl = checkUrl.replace("@", "%40").replace("|", "%7C");
         log.info("心跳地址:{}", checkUrl);
-        String result = HttpClientUtil.httpGet(checkUrl, new HashMap<>(), "UTF-8");
-
+        String result = HttpClientUtil.httpGet(checkUrl);
         SyncCheckRet syncCheckRet = JSONObject.parseObject(result.replace("window.synccheck=", ""), SyncCheckRet.class);
         log.info("心跳返回: {}", result);
         //window.synccheck={retcode:"1100",selector:"0"}
@@ -194,7 +134,7 @@ return "";
     }
 
     public static String wxStatusNotify(Map<String, Object> initMap, String userName) {
-        String deviceId = "e" +WxUtil.getNormalRandom(15);
+        String deviceId = "e" + WxUtil.getNormalRandom(15);
         String json = "{\"BaseRequest\":{\"Uin\":\"UIN\",\"Sid\":\"SID\",\"Skey\":\"SKEY\",\"DeviceID\":\"DEVICEID\"},\"Code\":3,\"FromUserName\":\"NAME\",\"ToUserName\":\"NAME\",\"ClientMsgId\":\"TIME\"}";
         json = json.replace("UIN", initMap.get("wxuin").toString()).replace("SID", initMap.get("wxsid").toString()).replace("SKEY", initMap.get("skey").toString())
                 .replace("DEVICEID", deviceId).replace("NAME", userName).replace("TIME", String.valueOf(System.currentTimeMillis()));
@@ -205,17 +145,29 @@ return "";
     }
 
     /**
+     * 根据扫码结果判断是否登录成功
      * 处理登录成功结果，写入loginSession对象
-     * @param checkLoginResult
-     * @param loginSession
+     *
+     * @param qrocodeResult//扫码结果
      * @return
      * @throws JDOMException
      * @throws IOException
      */
-    public static LoginSession doLoginSession(String checkLoginResult, LoginSession loginSession) throws JDOMException, IOException {
+    public static LoginSession doLoginSession(String qrocodeResult) throws JDOMException, IOException {
+        int start = qrocodeResult.indexOf("https");
+        String newLoginUrl = qrocodeResult.substring(start).replace("\";", "");
+        newLoginUrl += "&fun=new&version=v2";
+        log.info("手机确认登录，检查登录地址:{}", newLoginUrl);
+        String syncCheckDomain = WxUtil.getSyncCheckDomain(newLoginUrl);
+        LoginSession loginSession = new LoginSession();
+        loginSession.setSyncUrl(syncCheckDomain);
+        String checkLoginResult = HttpClientUtil.httpGet(newLoginUrl);
+        log.info("检查登录结果为{}", checkLoginResult);
+
         Map<String, Object> initMap = NodeUtil.doXMLParse(checkLoginResult);
         if (initMap.get("ret").equals("0")) {
             log.info("登录成功");
+            loginSession.setSuccess(true);
             loginSession.setPassTicket(initMap.get("pass_ticket").toString());
             loginSession.setWxSid(initMap.get("wxsid").toString());
             loginSession.setWxUin(initMap.get("wxuin").toString());
@@ -223,10 +175,11 @@ return "";
             //初始化用户信息
             loginSession = init(loginSession);
             String notifyResult = WxUtil.wxStatusNotify(initMap, loginSession.getUser().getUserName());
-            System.out.println(notifyResult);
+            log.info("开启消息通知,{}", notifyResult);
             return loginSession;
         }
         log.error("登录失败");
+        loginSession.setSuccess(false);
         return loginSession;
     }
 
@@ -237,17 +190,20 @@ return "";
         loginSession.setBaseRequest(baseRequest);
         String initResult = HttpClientUtil.jsonPost(initUrl, WxUtil.getInitJson(loginSession), "UTF-8");
         log.info("initResult  " + initResult);
-        //加载用户信息
-        JSONObject rootJson = JSONObject.parseObject(initResult);
-        User user = JSONObject.parseObject(rootJson.get("User").toString(), User.class);
-        loginSession.setUser(user);
-        System.out.println(user.toString());
-        String syncKeyParam = rootJson.get("SyncKey").toString();
-        SyncKey syncKey = JSONObject.parseObject(rootJson.get("SyncKey").toString(), SyncKey.class);
-        loginSession.setSyncKeyStr(syncKeyParam);
-        loginSession.setSyncKey(syncKey);
+        //解析初始化信息
+        InitResponse initResponse = JSONObject.parseObject(initResult, InitResponse.class);
+        if (initResponse.getBaseResponse().getRet().equals(0)) {
+            log.info("用户好友列表初始化成功");
+            loginSession.setUser(initResponse.getUser());
+            loginSession.setSyncKey(initResponse.getSyncKey());
+            loginSession.setContactList(initResponse.getContactList());
+        } else {
+            log.error("用户好友列表初始化失败");
+            loginSession.setSuccess(false);
+        }
         return loginSession;
     }
+
 
     private static BaseRequest getBaseRequest(LoginSession loginSession) {
         String deviceId = "e" + getNormalRandom(15);//15位随机数字
@@ -258,4 +214,110 @@ return "";
         baseRequest.setDeviceID(deviceId);
         return baseRequest;
     }
+
+
+    /**
+     * 处理监听到的消息
+     *
+     * @param sync
+     * @return
+     */
+    public static List<WeChatMessage> processMsg(LoginSession loginSession, WebSyncResponse sync) {
+        List<Message> messages = sync.getAddMessageList();
+        if (null != messages && messages.size() > 0) {
+            List<WeChatMessage> weChatMessages = new ArrayList<>(messages.size());
+            boolean hashNewMsg = false;
+            for (Message message : messages) {
+                WeChatMessage weChatMessage = processMsgDetail(loginSession, message);
+                if (null != weChatMessage) {
+                    weChatMessages.add(weChatMessage);
+                    hashNewMsg = true;
+                }
+            }
+            if (hashNewMsg) {
+                log.info("你有新的疑似红包消息");
+            }
+            return weChatMessages;
+        }
+        return null;
+    }
+
+
+    public static String formatMsg(String msg) {
+        msg = msg.replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("<br/>", "\n");
+        return msg;
+    }
+
+
+    private static WeChatMessage processMsgDetail(LoginSession loginSession, Message message) {
+        Integer msgType = message.getType();//消息类型
+        String name = getUserRemarkName(loginSession, message.getFromUserName());
+        String msgId = message.getId();
+        String content = message.getContent();
+
+
+        // 不处理自己发的消息
+        if (message.getFromUserName().equals(loginSession.getUser().getUserName())) {
+            return null;
+        }
+
+        WeChatMessage.WeChatMessageBuilder weChatMessageBuilder = WeChatMessage.builder()
+                .raw(message)
+                .id(message.getId())
+                .fromUserName(message.getFromUserName())
+                .toUserName(message.getToUserName())
+                .mineUserName(loginSession.getUser().getUserName())
+                .mineNickName(loginSession.getUser().getNickName())
+                .msgType(message.msgType())
+                .text(content);
+
+
+        //当前只监听红包消息
+        if (message.msgType().equals(MsgType.SHARE)) {
+            content = formatMsg(content);
+            log.info("消息类型为{},来自{},消息内容为{}", msgType, name, content);
+            return weChatMessageBuilder.text(content).build();
+        }
+        log.info("消息类型为{},来自{},消息内容为{}", msgType, name, content);
+        return null;
+    }
+
+
+    private static String getUserRemarkName(LoginSession loginSession, String id) {
+        String name = id.contains("@@") ? "未知群" : "陌生人";
+        if (id.equals(loginSession.getUser().getUserName())) {
+            return loginSession.getUser().getNickName();
+        }
+        List<Account> accounts = loginSession.getContactList().stream().filter(acc -> acc.getUserName().equals(id)).collect(Collectors.toList());
+        if (null == accounts || accounts.size() == 0) {
+            return name;
+        }
+        Account account = accounts.get(0);
+        String nickName = StringUtils.isNotEmpty(account.getRemarkName()) ? account.getRemarkName() : account.getNickName();
+        return StringUtils.isNotEmpty(nickName) ? nickName : name;
+    }
+
+    public static void main(String[] args) {
+        List<Account> aaa = new ArrayList<>();
+        Account account = new Account();
+        account.setUserName("一");
+        aaa.add(account);
+
+        account = new Account();
+        account.setUserName("二");
+        aaa.add(account);
+
+        account = new Account();
+        account.setUserName("三");
+        aaa.add(account);
+        System.out.println(aaa.size());
+        aaa.forEach(System.out::println);
+        List<Account> ccc = aaa.stream().filter(bbb -> "一".equals(bbb.getUserName())).collect(Collectors.toList());
+        System.out.println(ccc.size());
+        System.out.println(ccc.get(0));
+
+    }
+
 }
