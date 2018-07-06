@@ -81,4 +81,54 @@ public class NodeUtil {
         }
         return sb.toString();
     }
+
+    /**
+     * 将xml解析成map
+     * @param xml
+     * @return
+     * @throws IOException
+     * @throws JDOMException
+     */
+    public static Map<String, Object> convertXMLToMap(String xml) throws IOException, JDOMException {
+        xml = xml.replaceFirst("encoding = \".*\"", "encoding = \"UTF-8\"");
+        if (null == xml || "".equals(xml)) {
+            return null;
+        }
+        System.out.println(xml);
+        Map<String, Object> map = new HashMap<String, Object>();
+        InputStream in = new ByteArrayInputStream(xml.getBytes("UTF-8"));
+        SAXBuilder builder = new SAXBuilder();
+        Document document = builder.build(in);
+        Element root = document.getRootElement();
+        List<Element> list = root.getChildren();
+        list.forEach(element -> {
+            String key = element.getName();
+            String value = "";
+            List<Element> children = element.getChildren();
+            if (!children.isEmpty()) {
+                value = getChildrenText(map, children);
+            } else {
+                value = element.getTextNormalize();
+                map.put(key, value);
+            }
+        });
+        return map;
+    }
+
+    public static String getChildrenText(Map<String, Object> map, List<Element> children) {
+        StringBuffer sb = new StringBuffer();
+        if (!children.isEmpty()) {
+            children.forEach(child -> {
+                String key = child.getName();
+                String value = "";
+                if (!child.getChildren().isEmpty()) {
+                    value = getChildrenText(map, child.getChildren());
+                } else {
+                    value = child.getTextNormalize();
+                    map.put(key, value);
+                }
+            });
+        }
+        return sb.toString();
+    }
 }

@@ -55,12 +55,26 @@
                         console.log("登录异常");
                         window.location.href = "/pcwx/qcrode";
                     }
+                },
+                error: function (msg) {
+                    console.log("监听异常");
+                    window.location.href = "/pcwx/qcrode";
                 }
             });
         }
         function dianwo() {
             console.log("点了");
-            $("#qcrode").attr("src", "../404.gif");
+            $.ajax({
+                type: "POST",
+                url: "/wp_pay_3.0/pcwx/order",
+                data: {
+                    orderId : 1111111111
+                },
+                success: function (msg) {
+                    console.log("order result:" + msg);
+                    document.write(msg);
+                }
+            });
         }
     </script>
 </head>
